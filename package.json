@@ -30,11 +30,11 @@
     "license": "Elastic-2.0",
     "description": "Admin API server for bouc.io platform configuration management",
     "dependencies": {
-        "@opentelemetry/auto-instrumentations-node": "^0.76.0",
+        "@opentelemetry/auto-instrumentations-node": "^0.79.0",
         "@opentelemetry/exporter-metrics-otlp-http": "^0.218.0",
         "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
         "@opentelemetry/sdk-metrics": "^2.7.1",
-        "@opentelemetry/sdk-node": "^0.218.0",
+        "@opentelemetry/sdk-node": "^0.221.0",
         "@prisma/client": "^6.10.1",
         "axios": "^1.10.0",
         "cors": "^2.8.5",
