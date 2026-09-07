@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model LlmInstruction {
+  id           String        @id @default(uuid())
+  org_id       String?       // null = global (all users); non-null = org-level (org members only)
+  title        String
+  content      String
+  priority     Int           @default(0)
+  is_active    Boolean       @default(true)
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+  created_by   String?
+
+  organization Organization? @relation(fields: [org_id], references: [id], onDelete: Cascade)
+
+  @@index([priority])
+  @@index([is_active])
+  @@index([org_id])
+  @@map("llm_instructions")
+}
+
+model LlmProvider {
+  id           String          @id @default(uuid())
+  org_id       String?         // null = global; non-null = org-specific (FK to organizations)
+  name         String
+  provider     String          // 'openai' | 'anthropic' | 'google' | 'azure' | 'ollama' | 'custom'
+  api_endpoint String
+  api_key_enc  String?         // AES-256-GCM encrypted: "base64(iv):base64(authTag):base64(ciphertext)"
+  models       String[]
+  is_active    Boolean         @default(false)
+  created_at   DateTime        @default(now())
+  updated_at   DateTime        @updatedAt
+  created_by   String?
+  assignments  LlmAssignment[]
+  organization Organization?   @relation(fields: [org_id], references: [id], onDelete: Cascade)
+
+  @@index([org_id])
+  @@map("llm_providers")
+}
+
+model LlmAssignment {
+  id               String        @id @default(uuid())
+  org_id           String?       // null = global; non-null = org-specific override
+  // use_case uniqueness is enforced by two partial DB indexes (see migration SQL);
+  // Prisma does not support partial indexes natively so no @@unique here.
+  use_case         String        // 'chatbot' | 'agent_plan' | 'agent_execution' | 'memory_distiller'
+  provider_id      String?
+  model            String?
+  enable_reasoning Boolean       @default(false)
+  updated_at       DateTime      @updatedAt
+  provider         LlmProvider?  @relation(fields: [provider_id], references: [id], onDelete: SetNull)
+  organization     Organization? @relation(fields: [org_id], references: [id], onDelete: Cascade)
+
+  @@index([org_id])
+  @@map("llm_assignments")
+}
+
+model Organization {
+  id         String   @id @default(uuid())
+  name       String
+  slug       String   @unique
+  tier       String   // 'internal' | 'free' | 'personal' | 'company' | 'enterprise'
+  status     String   @default("active") // 'active' | 'suspended' | 'trial'
+  sso_config Json?    @default("{}")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  members      OrganizationMember[]
+  instructions LlmInstruction[]
+  providers    LlmProvider[]
+  assignments  LlmAssignment[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id        String       @id @default(uuid())
+  org       Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  org_id    String
+  user_id   String
+  role      String       @default("member") // 'admin' | 'member'
+  joined_at DateTime     @default(now())
+
+  @@unique([org_id, user_id])
+  @@index([user_id])
+  @@map("organization_members")
+}
+
+model McpServer {
+  id             String   @id @default(uuid())
+  name           String   @unique // human label, e.g. "github-mcp" — also used as the tool-name prefix
+  url            String // e.g. "https://mcp.example.com/mcp"
+  transport      String   @default("http") // "http" | "sse"
+  auth_token_enc String? // AES-256-GCM encrypted bearer token: "base64(iv):base64(authTag):base64(ciphertext)"
+  enabled        Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  created_by     String?
+
+  @@map("mcp_servers")
+}
